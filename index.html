@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sistema de Relatórios Profissional</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Ícones (Font Awesome) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1><i class="fas fa-file-alt"></i> Sistema de Relatórios</h1>
+    </header>
+
+    <section class="report-creator-section">
+      <h2><i class="fas fa-pencil-alt"></i> Criar Novo Relatório</h2>
+      <form id="reportForm">
+        <textarea id="textoRelatorio" placeholder="Digite os detalhes do seu relatório aqui..." rows="5" aria-label="Texto do Relatório"></textarea>
+        <div class="report-meta">
+            <label for="colaboradorNome">Seu Nome (Opcional):</label>
+            <input type="text" id="colaboradorNome" placeholder="Ex: João Silva" aria-label="Nome do Colaborador">
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Adicionar Relatório</button>
+      </form>
+    </section>
+
+    <section class="filter-section">
+      <h2><i class="fas fa-filter"></i> Filtrar Relatórios</h2>
+      <div class="status-filter">
+        <button class="btn" data-filter="todos" aria-label="Filtrar todos os relatórios"><i class="fas fa-list"></i> Todos</button>
+        <button class="btn" data-filter="pendente" aria-label="Filtrar relatórios pendentes"><i class="fas fa-clock"></i> Pendentes</button>
+        <button class="btn" data-filter="andamento" aria-label="Filtrar relatórios em andamento"><i class="fas fa-tasks"></i> Em Andamento</button>
+        <button class="btn" data-filter="resolvido" aria-label="Filtrar relatórios resolvidos"><i class="fas fa-check-circle"></i> Resolvidos</button>
+        <button class="btn" data-filter="nao_resolvido" aria-label="Filtrar relatórios não resolvidos"><i class="fas fa-times-circle"></i> Não Resolvidos</button>
+      </div>
+    </section>
+
+    <main id="relatoriosContainer" class="reports-grid" aria-live="polite">
+      <!-- Relatórios serão inseridos aqui pelo JavaScript -->
+      <p class="empty-message">Carregando relatórios...</p>
+    </main>
+
+    <footer>
+        <p>© <span id="currentYear"></span> Seu Sistema de Relatórios. Todos os direitos reservados.</p>
+    </footer>
+  </div>
+
+  <!-- Modal de Confirmação de Exclusão -->
+  <div id="deleteModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle" style="display: none;">
+    <div class="modal-content">
+      <button class="close-button" aria-label="Fechar modal">×</button>
+      <h2 id="deleteModalTitle"><i class="fas fa-exclamation-triangle"></i> Confirmar Exclusão</h2>
+      <p>Você tem certeza que deseja excluir este relatório? Esta ação não poderá ser desfeita.</p>
+      <div class="modal-actions">
+        <button id="confirmDeleteBtn" class="btn btn-danger"><i class="fas fa-trash-alt"></i> Excluir</button>
+        <button id="cancelDeleteBtn" class="btn btn-secondary"><i class="fas fa-ban"></i> Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
