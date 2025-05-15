@@ -12,15 +12,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
   const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
   let reportIdToDelete = null;
-  let currentFilter = 'todos';
+  let currentFilter = 'todos'; // Default filter
 
-  console.log("SCRIPT: Iniciando Sistema de Relatórios");
-  console.log("SCRIPT: Tentando carregar relatórios do localStorage com a chave 'relatoriosSistemaProf'");
+  const localStorageKey = 'rto_relatorios_v2'; // Usei v2 para forçar um novo estado em caso de dados antigos corrompidos
+
+  console.log("SCRIPT: Iniciando Sistema de Relatórios (RTO)");
+  console.log(`SCRIPT: Tentando carregar relatórios do localStorage com a chave '${localStorageKey}'`);
   let relatorios = [];
   try {
-    const relatoriosSalvos = localStorage.getItem('relatoriosSistemaProf');
+    const relatoriosSalvos = localStorage.getItem(localStorageKey);
     if (relatoriosSalvos) {
       relatorios = JSON.parse(relatoriosSalvos);
+      if (!Array.isArray(relatorios)) { // Verificação extra
+        console.warn("SCRIPT: Dados do localStorage não são um array. Resetando para array vazio.", relatorios);
+        relatorios = [];
+      }
       console.log("SCRIPT: Relatórios carregados do localStorage:", JSON.parse(JSON.stringify(relatorios)));
     } else {
       console.log("SCRIPT: Nenhum relatório encontrado no localStorage. Iniciando com array vazio.");
@@ -32,8 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const salvarRelatorios = () => {
     try {
-      console.log("SCRIPT: Tentando salvar relatórios. Estado atual:", JSON.parse(JSON.stringify(relatorios)));
-      localStorage.setItem('relatoriosSistemaProf', JSON.stringify(relatorios));
+      console.log("SCRIPT: Tentando salvar relatorios. Estado atual:", JSON.parse(JSON.stringify(relatorios)));
+      localStorage.setItem(localStorageKey, JSON.stringify(relatorios));
       console.log("SCRIPT: Relatórios salvos com sucesso no localStorage.");
     } catch (error) {
       console.error("SCRIPT: Erro ao salvar relatórios no localStorage:", error);
@@ -66,31 +72,46 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const renderizarRelatorios = () => {
+    console.log("DEBUG: Entrando em renderizarRelatorios. Filtro atual:", currentFilter, "Array relatorios ANTES de filtrar:", JSON.parse(JSON.stringify(relatorios)));
+    
     relatoriosContainer.innerHTML = ''; 
+    
     const relatoriosFiltrados = relatorios.filter(relatorio => {
+      if (!relatorio || typeof relatorio.status === 'undefined') { // Checagem de sanidade do objeto relatório
+        console.warn("DEBUG: Relatório inválido encontrado e ignorado no filtro:", relatorio);
+        return false;
+      }
       if (currentFilter === 'todos') return true;
       return relatorio.status === currentFilter;
     });
 
-    if (relatorios.length === 0) {
+    console.log("DEBUG: Relatórios filtrados para renderização:", JSON.parse(JSON.stringify(relatoriosFiltrados)));
+
+    if (relatorios.length === 0 && currentFilter === 'todos') { // Modificado para checar relatorios.length global
         relatoriosContainer.innerHTML = `<p class="empty-message"><i class="fas fa-folder-open"></i> Nenhum relatório cadastrado ainda. Crie o primeiro!</p>`;
         return;
     }
     if (relatoriosFiltrados.length === 0) {
-        relatoriosContainer.innerHTML = `<p class="empty-message"><i class="fas fa-search-minus"></i> Nenhum relatório encontrado para o filtro "${currentFilter}".</p>`;
+        const filterText = currentFilter === 'todos' ? 'todos os relatórios' : `o filtro "${currentFilter}"`;
+        relatoriosContainer.innerHTML = `<p class="empty-message"><i class="fas fa-search-minus"></i> Nenhum relatório encontrado para ${filterText}.</p>`;
         return;
     }
 
+    // Ordenar antes de renderizar
     relatoriosFiltrados.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); 
 
     relatoriosFiltrados.forEach(relatorio => {
+      if (!relatorio || typeof relatorio.id === 'undefined') { // Checagem de sanidade antes de criar o card
+        console.warn("DEBUG: Relatório inválido encontrado e ignorado na renderização do card:", relatorio);
+        return; // Pula este relatório
+      }
+
       const reportCard = document.createElement('div');
       reportCard.className = 'report-card';
       reportCard.dataset.id = relatorio.id;
       reportCard.dataset.status = relatorio.status;
       reportCard.setAttribute('role', 'article');
       reportCard.setAttribute('aria-labelledby', `report-title-${relatorio.id}`);
-
 
       const authorText = relatorio.colaborador ? `<p class="report-author">Criado por: ${escapeHTML(relatorio.colaborador)}</p>` : '';
       const safeRelatorioText = escapeHTML(relatorio.texto).replace(/\n/g, '<br>');
@@ -143,25 +164,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const texto = textoRelatorioInput.value.trim();
     const colaborador = colaboradorNomeInput.value.trim() || "Anônimo";
 
-    // Limpar feedback de erro anterior
     textoRelatorioInput.style.borderColor = 'var(--border-color)';
     textoRelatorioInput.placeholder = "Digite os detalhes do seu relatório aqui...";
-
 
     if (!texto) {
       textoRelatorioInput.style.borderColor = 'var(--danger-color)';
       textoRelatorioInput.placeholder = "O texto do relatório não pode estar vazio!";
       textoRelatorioInput.focus();
-      // Remover o feedback após um tempo, se desejar, mas o foco já ajuda.
-      // setTimeout(() => {
-      //     textoRelatorioInput.style.borderColor = 'var(--border-color)';
-      //     textoRelatorioInput.placeholder = "Digite os detalhes do seu relatório aqui...";
-      // }, 3000);
       return;
     }
 
     const novoRelatorio = {
-      id: Date.now(),
+      id: Date.now(), // Usar Date.now() é geralmente seguro para IDs únicos em uma sessão
       texto: texto,
       colaborador: colaborador,
       status: 'pendente',
@@ -169,15 +183,28 @@ document.addEventListener('DOMContentLoaded', () => {
       updatedAt: null
     };
 
-    console.log("SCRIPT: Novo relatório a ser adicionado:", novoRelatorio);
-    relatorios.push(novoRelatorio);
-    console.log("SCRIPT: Array 'relatorios' após push:", JSON.parse(JSON.stringify(relatorios)));
+    console.log("DEBUG: ANTES DO PUSH, relatorios:", JSON.parse(JSON.stringify(relatorios)));
+    console.log("DEBUG: Novo relatório a ser adicionado:", JSON.parse(JSON.stringify(novoRelatorio)));
+
+    if (!Array.isArray(relatorios)) { // Verificação de sanidade
+        console.error("ERRO CRÍTICO: 'relatorios' não é um array antes do push. Resetando para evitar mais problemas.", relatorios);
+        relatorios = []; // Tenta recuperar, mas isso indica um problema anterior.
+    }
+
+    relatorios.push(novoRelatorio); 
+
+    console.log("DEBUG: APÓS O PUSH, relatorios:", JSON.parse(JSON.stringify(relatorios)));
+
+    if (!Array.isArray(relatorios) || relatorios.length === 0) {
+        console.error("BUG DETECTADO: 'relatorios' não é um array ou está vazio APÓS o push quando deveria ter itens!", relatorios);
+        // Não retorne aqui ainda, deixe salvar e renderizar para ver o que acontece
+    }
     
     salvarRelatorios();
     renderizarRelatorios();
 
     textoRelatorioInput.value = '';
-    // colaboradorNomeInput.value = ''; // Descomente se quiser limpar o nome também
+    // colaboradorNomeInput.value = ''; 
     textoRelatorioInput.focus();
   });
 
@@ -190,33 +217,41 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const iniciarEdicao = (reportCard, id) => {
-    // Se já existe um modo de edição em outro card, cancela-o primeiro
-    const existingEditing = document.querySelector('.report-text-editing');
-    if (existingEditing && existingEditing.closest('.report-card').dataset.id !== String(id)) {
-        renderizarRelatorios(); // Re-renderiza tudo para cancelar outras edições
+    const existingEditingTextarea = document.querySelector('.report-text-editing');
+    if (existingEditingTextarea) {
+        const activeCard = existingEditingTextarea.closest('.report-card');
+        if (activeCard && activeCard.dataset.id !== String(id)) {
+            console.log("DEBUG: Cancelando edição anterior em outro card.");
+            renderizarRelatorios(); // Cancela outra edição ativa re-renderizando
+        } else if (activeCard && activeCard.dataset.id === String(id)) {
+            console.log("DEBUG: Tentativa de editar o mesmo card que já está em edição. Ignorando.");
+            return; // Já está editando este card
+        }
     }
-
 
     const reportContentDiv = reportCard.querySelector('.report-content');
     const reportTextDiv = reportCard.querySelector('.report-text');
     const actionsDiv = reportCard.querySelector('.report-actions');
     const originalRelatorio = relatorios.find(r => r.id === id);
-    if (!originalRelatorio) return;
+
+    if (!originalRelatorio) {
+        console.error("DEBUG: Não foi possível encontrar o relatório para edição com ID:", id);
+        return;
+    }
     const originalText = originalRelatorio.texto;
 
-    actionsDiv.style.display = 'none'; // Esconde botões originais
+    actionsDiv.style.display = 'none';
 
     const editTextArea = document.createElement('textarea');
     editTextArea.className = 'report-text-editing';
     editTextArea.value = originalText;
-    editTextArea.rows = Math.max(5, originalText.split('\n').length + 1); // Ajusta altura
+    editTextArea.rows = Math.max(5, originalText.split('\n').length + 1); 
     
     reportTextDiv.style.display = 'none';
-    reportContentDiv.insertBefore(editTextArea, reportTextDiv); // Insere antes do div de texto original
+    reportContentDiv.insertBefore(editTextArea, reportTextDiv); 
     editTextArea.focus();
-    editTextArea.selectionStart = editTextArea.selectionEnd = editTextArea.value.length; // Cursor no final
+    editTextArea.selectionStart = editTextArea.selectionEnd = editTextArea.value.length;
 
-    // Cria novos botões de Salvar e Cancelar
     const saveEditButton = document.createElement('button');
     saveEditButton.innerHTML = '<i class="fas fa-save"></i> Salvar';
     saveEditButton.className = 'btn btn-save';
@@ -239,16 +274,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (novoTexto && novoTexto !== originalText) {
         salvarEdicao(id, novoTexto);
       } else if (!novoTexto) {
-        // Tratar caso de texto vazio na edição se necessário, ou apenas cancelar
-        renderizarRelatorios(); // Cancela se texto vazio
-      }
-      else {
-        renderizarRelatorios(); // Se não mudou, apenas volta ao normal
+        alert("O texto do relatório não pode ficar vazio após a edição. Alterações não salvas.");
+        renderizarRelatorios(); 
+      } else { // Texto não mudou ou é o mesmo
+        renderizarRelatorios(); 
       }
     });
 
     cancelEditButton.addEventListener('click', () => {
-      renderizarRelatorios(); // Restaura a visualização original
+      renderizarRelatorios(); 
     });
   };
 
@@ -262,8 +296,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const abrirModalExclusao = (id) => {
     reportIdToDelete = id;
-    deleteModal.style.display = 'flex'; // Usar flex para centralizar
-    confirmDeleteBtn.focus(); // Foco no botão de confirmação
+    deleteModal.style.display = 'flex'; 
+    confirmDeleteBtn.focus(); 
   };
 
   const fecharModalExclusao = () => {
@@ -294,6 +328,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.key === 'Escape' && deleteModal.style.display === 'flex') {
         fecharModalExclusao();
     }
+    // Se um textarea de edição estiver ativo e pressionar Escape, cancelar edição
+    const activeEditingTextarea = document.querySelector('.report-text-editing:focus');
+    if (event.key === 'Escape' && activeEditingTextarea) {
+        console.log("DEBUG: Edição cancelada via tecla Escape.");
+        renderizarRelatorios();
+    }
   });
 
   statusFilterButtons.forEach(button => {
@@ -306,7 +346,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
   
-  // Atualizar ano no footer
   if(currentYearSpan) {
     currentYearSpan.textContent = new Date().getFullYear();
   }
@@ -314,7 +353,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Inicialização
   if (statusFilterButtons.length > 0) {
       const todosButton = Array.from(statusFilterButtons).find(btn => btn.dataset.filter === 'todos');
-      if (todosButton) todosButton.classList.add('active');
+      if (todosButton) {
+        todosButton.classList.add('active');
+      } else { // Fallback se o botão 'todos' não for encontrado por algum motivo
+        statusFilterButtons[0].classList.add('active');
+        currentFilter = statusFilterButtons[0].dataset.filter;
+      }
   }
-  renderizarRelatorios();
+  renderizarRelatorios(); // Renderiza os relatórios ao carregar a página
 });
